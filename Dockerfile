@@ -6,8 +6,7 @@ FROM ghcr.io/nofxaios/nofx/nofx-backend:sha-65e9037-amd64@sha256:0f4759d6dc2e7b3
 FROM ghcr.io/nofxaios/nofx/nofx-frontend:sha-65e9037-amd64@sha256:7356685d8fc1c2ffb07c4a4f2c33c67fcabfb8226bc217274cc7e0ff88d910e4
 
 # openssl: generates the RSA transport key once and the setup password hash.
-RUN apk add --no-cache openssl \
- && rm -f /etc/nginx/conf.d/default.conf
+RUN apk add --no-cache openssl
 
 COPY --from=backend /usr/local/lib/libta_lib* /usr/local/lib/
 COPY --from=backend /app/nofx /app/nofx

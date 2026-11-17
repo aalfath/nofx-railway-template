@@ -47,6 +47,8 @@ chown root:nginx /etc/nginx/nofx-setup.htpasswd 2>/dev/null || true
 LISTEN_V6=""
 [ -s /proc/net/if_inet6 ] && LISTEN_V6="listen [::]:${PORT};"
 export LISTEN_V6
+# Replace the base image's site (it points at a separate "nofx" host).
+rm -f /etc/nginx/conf.d/*.conf
 envsubst '${PORT} ${LISTEN_V6}' < /etc/nofx/nginx.conf.template > /etc/nginx/conf.d/nofx.conf
 GATE_ON='auth_basic $nofx_setup_realm; auth_basic_user_file /etc/nginx/nofx-setup.htpasswd;'
 if [ -f "$KEYS/initialized" ]; then
