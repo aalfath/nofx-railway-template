@@ -18,6 +18,5 @@ RUN chmod +x /usr/local/bin/nofx-start /app/nofx && mkdir -p /app/data
 WORKDIR /app
 ENV PORT=8080
 EXPOSE 8080
-VOLUME ["/app/data"]
 
 ENTRYPOINT ["/usr/local/bin/nofx-start"]
