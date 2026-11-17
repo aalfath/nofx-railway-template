@@ -1,0 +1,81 @@
+# Rendered by start.sh (only ${PORT} and ${LISTEN_V6} are substituted).
+
+# Until the first NOFX account exists, the whole site asks for the first-run
+# setup password (user "setup", password SETUP_PASSWORD). Requests that already
+# carry a NOFX session token pass, because only a registered account can get one.
+map $http_authorization $nofx_setup_realm {
+    "~^Bearer "  off;
+    default      "NOFX first-run setup (user: setup)";
+}
+# Never forward the setup password to NOFX.
+map $http_authorization $nofx_upstream_auth {
+    "~^Basic "   "";
+    default      $http_authorization;
+}
+map $http_upgrade $nofx_connection {
+    default  upgrade;
+    ""       "";
+}
+
+server {
+    listen ${PORT};
+    ${LISTEN_V6}
+    server_name _;
+    absolute_redirect off;
+    client_max_body_size 20m;
+
+    # Railway's edge proxy is the only peer that reaches this port from the
+    # internet. It appends the visitor's address to X-Forwarded-For; use that
+    # last entry as the client address (logs and NOFX's login rate limit).
+    set_real_ip_from 0.0.0.0/0;
+    set_real_ip_from ::/0;
+    real_ip_header X-Forwarded-For;
+    real_ip_recursive off;
+
+    include /etc/nofx/gate.conf;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml text/javascript application/javascript application/json;
+
+    location = /index.html {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+    location = /frontier { try_files /index.html =404; add_header Cache-Control "no-store"; }
+    location = /planning { try_files /index.html =404; add_header Cache-Control "no-store"; }
+    location = /planning/ { try_files /index.html =404; add_header Cache-Control "no-store"; }
+    location = /planning/chart.js { try_files $uri =404; add_header Cache-Control "no-cache, must-revalidate"; }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+
+    # Registration always needs the setup password, even after the gate is
+    # lifted (NOFX itself closes registration once the first account exists).
+    location = /api/register {
+        auth_basic "NOFX first-run setup (user: setup)";
+        auth_basic_user_file /etc/nginx/nofx-setup.htpasswd;
+        proxy_pass http://127.0.0.1:8081;
+        include /etc/nofx/proxy.conf;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8081;
+        include /etc/nofx/proxy.conf;
+    }
+
+    location = /health {
+        auth_basic off;
+        access_log off;
+        default_type text/plain;
+        return 200 "OK\n";
+    }
+}
